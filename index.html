@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دومینو آنلاین</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--felt:#14472f;--felt2:#0d3322;--ivory:#f6f1e1;--ink:#1c1b19;--gold:#e0b04a;--red:#c8453a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Vazirmatn,Tahoma,sans-serif;color:#f3efe2;background:radial-gradient(ellipse at 50% 30%,var(--felt),var(--felt2) 75%) fixed}
+button,input,select{font:inherit}
+button{background:var(--gold);color:#2a2008;border:0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer}
+button.alt{background:transparent;color:#f3efe2;border:1.5px solid #ffffff55}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible,.tile.ok:focus-visible{outline:3px solid #fff}
+input,select{background:#0b2619;color:#fff;border:1.5px solid #ffffff33;border-radius:10px;padding:10px 12px;width:100%}
+.wrap{max-width:560px;margin:0 auto;padding:24px 16px}
+.panel{background:#0b261966;border:1px solid #ffffff22;border-radius:16px;padding:18px;margin-bottom:14px}
+h1{font-size:38px;margin:10px 0 4px;font-weight:900}
+.sub{opacity:.7;margin-bottom:18px}
+.row{display:flex;gap:10px;margin:10px 0}.row>*{flex:1}
+label{font-size:13px;opacity:.75}
+.code{font-size:34px;font-weight:900;letter-spacing:6px;color:var(--gold);direction:ltr;text-align:center}
+.seat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff18}
+/* tiles */
+.tile{display:flex;background:var(--ivory);border-radius:7px;box-shadow:0 2px 0 #b9ae8e,0 4px 8px #0006;flex:none}
+.tile.h{width:64px;height:32px;flex-direction:row}
+.tile.v{width:32px;height:64px;flex-direction:column}
+.tile b{flex:1;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:4px;font-weight:400}
+.tile.h b+b{border-left:2px solid #8a8265}.tile.v b+b{border-top:2px solid #8a8265}
+.tile i{margin:1px;border-radius:50%}.tile i.on{background:var(--ink)}
+.tile.back{background:linear-gradient(135deg,#2c5f9e,#1d3f6e);box-shadow:0 2px 0 #11284a}
+.tile.mini{width:18px;height:36px}
+.hand{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;direction:ltr;padding:10px}
+.hand .tile.v{width:40px;height:80px;transition:transform .12s}
+.hand .tile.ok{cursor:pointer;box-shadow:0 0 0 3px var(--gold),0 4px 10px #0008}
+.hand .tile.ok:hover,.hand .tile.sel{transform:translateY(-10px)}
+.hand .tile.dim{opacity:.45}
+/* table */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;background:#0008;flex-wrap:wrap}
+.score{display:flex;gap:16px;font-size:15px}.score b{color:var(--gold);font-size:20px}
+.opps{display:flex;justify-content:center;gap:14px;padding:12px;flex-wrap:wrap}
+.opp{background:#0b261988;border:2px solid transparent;border-radius:12px;padding:8px 12px;text-align:center;min-width:110px}
+.opp.turn{border-color:var(--gold)}.opp .bk{display:flex;gap:3px;justify-content:center;margin-top:6px;direction:ltr}
+.board{margin:8px auto;max-width:980px;min-height:210px;padding:16px;border-radius:20px;background:#0a2d1d;box-shadow:inset 0 0 40px #0008;display:flex;flex-wrap:wrap;gap:3px;justify-content:center;align-items:center;direction:ltr}
+.status{text-align:center;min-height:30px;font-weight:700}
+.acts{display:flex;gap:10px;justify-content:center;margin:8px;flex-wrap:wrap}
+.log{font-size:12px;opacity:.65;text-align:center;padding:4px}
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.box{background:#102f21;border:1px solid #ffffff33;border-radius:18px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;text-align:center}
+.rh{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;direction:ltr;margin:4px 0 10px}
+.rh .tile.v{width:22px;height:44px}.rh .tile b{padding:2px}
+@media(max-width:600px){h1{font-size:30px}.hand .tile.v{width:34px;height:68px}.tile.h{width:52px;height:26px}.tile.v{width:26px;height:52px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const so=io();let S=null,sel=null;
+const pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36));
+const $=id=>document.getElementById(id);
+const P=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
+const pips=n=>{let h='';for(let k=0;k<9;k++)h+=`<i class="${P[n].includes(k)?'on':''}"></i>`;return h};
+const tile=(a,b,c='',x='')=>`<div class="tile ${c}" ${x}><b>${pips(a)}</b><b>${pips(b)}</b></div>`;
+const back='<div class="tile back v mini"></div>';
+const go=(e,d,cb)=>so.emit(e,d,cb);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nm=()=>($('name')?.value||localStorage.name||'بازیکن').trim()||'بازیکن';
+
+function after(res){ if(res.err){alert(res.err);localStorage.removeItem('room');render();return} localStorage.room=res.code; history.replaceState(null,'','?room='+res.code); }
+function create(){localStorage.name=nm();go('create',{name:nm(),pid,max:$('max').value,target:$('target').value},after)}
+function joinRoom(){localStorage.name=nm();const c=$('code').value.trim();if(c)go('join',{name:nm(),pid,code:c},after)}
+function leave(){go('leave');localStorage.removeItem('room');history.replaceState(null,'','/');S=null;render()}
+function pick(i){const m=S.moves&&S.moves.find(m=>m.i===i);if(!m)return;if(m.sides.length===1)return go('move',{i,side:m.sides[0]});sel=sel===i?null:i;render()}
+function mv(i,side){sel=null;go('move',{i,side})}
+so.on('connect',()=>{const c=localStorage.room;if(c)go('join',{code:c,pid,name:localStorage.name},r=>{if(r.err){localStorage.removeItem('room');S=null;render()}})});
+so.on('state',s=>{S=s;sel=null;render()});
+
+function lobby(){
+ const q=new URLSearchParams(location.search).get('room')||'';
+ return `<div class="wrap"><h1>🁣 دومینو</h1><div class="sub">دومینو دابل‌سیکس · آنلاین · ۲ تا ۴ نفره</div>
+ <div class="panel"><label>نام شما</label><input id="name" maxlength="14" value="${esc(localStorage.name||'')}" placeholder="مثلاً علی">
+ <div class="row"><div><label>تعداد بازیکنان</label><select id="max"><option value="2">۲ نفره (بازار دارد)</option><option value="3">۳ نفره (بازار دارد)</option><option value="4" selected>۴ نفره (دو تیمه)</option></select></div>
+ <div><label>امتیاز هدف</label><select id="target"><option>50</option><option selected>100</option><option>150</option><option>200</option></select></div></div>
+ <button style="width:100%" onclick="create()">ساخت اتاق جدید</button></div>
+ <div class="panel"><label>ورود با کد اتاق</label><div class="row"><input id="code" maxlength="4" value="${esc(q)}" placeholder="کد ۴ حرفی" style="direction:ltr;text-transform:uppercase"><button class="alt" onclick="joinRoom()">ورود</button></div></div></div>`;
+}
+function waiting(){
+ const host=S.me===0,full=S.seats.length===S.max;
+ return `<div class="wrap"><div class="panel"><label>کد اتاق (به دوستانتان بدهید)</label><div class="code">${S.code}</div>
+ <div style="text-align:center"><button class="alt" onclick="navigator.clipboard&&navigator.clipboard.writeText(location.origin+'/?room=${S.code}');this.textContent='کپی شد ✓'">کپی لینک دعوت</button></div></div>
+ <div class="panel"><b>بازیکنان (${S.seats.length}/${S.max})</b>${S.seats.map((s,i)=>`<div class="seat"><span>${esc(s.name)}${s.bot?' 🤖':''}${i===S.me?' (شما)':''}</span><span style="opacity:.6">${S.teams?(i%2?'تیم ب':'تیم الف'):''}</span></div>`).join('')}
+ ${S.teams?'<div class="sub" style="margin:8px 0 0;font-size:13px">هم‌تیمی‌ها روبه‌روی هم می‌نشینند (۱ و ۳ ، ۲ و ۴)</div>':''}
+ <div>هدف: ${S.target} امتیاز</div></div>
+ ${host?`<div class="row"><button class="alt" onclick="go('addBot')" ${full?'disabled':''}>+ ربات</button><button class="alt" onclick="go('removeBot')">− ربات</button><button onclick="go('start')" ${full?'':'disabled'}>شروع بازی</button></div>`:'<div class="status">منتظر شروع بازی توسط میزبان…</div>'}
+ <button class="alt" style="width:100%;margin-top:10px" onclick="leave()">خروج</button></div>`;
+}
+function game(){
+ const me=S.me,n=S.max,play=S.phase==='play',my=play&&S.turn===me,un=i=>S.teams?i%2:i;
+ const sc=S.teams?`<span>تیم شما <b>${S.scores[un(me)]}</b></span><span>حریف <b>${S.scores[1-un(me)]}</b></span>`:S.seats.map((s,i)=>`<span>${esc(s.name)} <b>${S.scores[i]}</b></span>`).join('');
+ const opps=S.seats.map((s,i)=>i).filter(i=>i!==me).map(i=>`<div class="opp ${play&&S.turn===i?'turn':''}"><div>${esc(S.seats[i].name)}${S.seats[i].bot?' 🤖':''}${!S.seats[i].on?' ⚠️':''}</div><div style="font-size:12px;opacity:.7">${S.teams&&i%2===me%2?'هم‌تیمی':''}</div><div class="bk">${back.repeat(S.counts[i])}</div></div>`).join('');
+ let chain=S.chain.length?S.chain.map(t=>tile(t[0],t[1],t[0]===t[1]?'v':'h')).join(''):`<span style="opacity:.6">${S.must?`شروع‌کننده باید مهره ${S.must[0]}|${S.must[1]} را بازی کند`:'میز خالی است'}</span>`;
+ let st=!play?'':my?(S.moves.length?'نوبت شماست':S.canDraw?'مهره قابل بازی ندارید؛ از بازار بردارید':'مهره‌ای ندارید؛ پاس…'):`نوبت ${esc(S.seats[S.turn].name)}…`;
+ const hand=S.hand.map((t,i)=>{const m=S.moves&&S.moves.find(m=>m.i===i);return tile(t[0],t[1],'v '+(m?'ok':(my?'dim':''))+(sel===i?' sel':''),m?`tabindex="0" role="button" onclick="pick(${i})" onkeydown="if(event.key==='Enter')pick(${i})"`:'')}).join('');
+ let acts='';
+ if(sel!=null){const m=S.moves.find(m=>m.i===sel);acts+=(m.sides.includes('L')?`<button onclick="mv(${sel},'L')">◀ سمت چپ (${S.ends[0]})</button>`:'')+(m.sides.includes('R')?`<button onclick="mv(${sel},'R')">سمت راست (${S.ends[1]}) ▶</button>`:'')}
+ if(S.canDraw)acts+=`<button onclick="go('draw')">برداشتن از بازار (${S.boneyard})</button>`;
+ let modal='';
+ if(!play){const r=S.result;
+  let w=r.unit<0?'بازی بسته شد؛ مساوی!':`${r.blocked?'بازی بسته شد — ':'دومینو! — '}${S.teams?(un(me)===r.unit?'تیم شما':'تیم حریف'):esc(S.seats[r.winner].name)} ${r.pts} امتیاز گرفت`;
+  if(S.phase==='over'){const wu=S.scores.findIndex(x=>x>=S.target&&x===Math.max(...S.scores));w='🏆 پایان بازی! '+(S.teams?(un(me)===wu?'تیم شما برنده شد':'تیم حریف برنده شد'):esc(S.seats[wu].name)+' برنده شد')}
+  modal=`<div class="modal"><div class="box"><h2 style="margin-top:0">${w}</h2>${S.hands.map((h,i)=>`<div>${esc(S.seats[i].name)}</div><div class="rh">${h.map(t=>tile(t[0],t[1],'v')).join('')||'—'}</div>`).join('')}
+  <div class="score" style="justify-content:center;margin:10px 0">${sc}</div>
+  ${S.phase==='roundEnd'?`<button onclick="go('next')">دست بعدی</button>`:(me===0?`<button onclick="go('rematch')">بازی دوباره</button> `:'')+`<button class="alt" onclick="leave()">خروج</button>`}</div></div>`;}
+ return `<div class="top"><div class="score">${sc}</div><div>دست ${S.round} · هدف ${S.target} · کد ${S.code}</div><button class="alt" onclick="confirm('از بازی خارج می‌شوید؟')&&leave()">خروج</button></div>
+ <div class="opps">${opps}</div><div class="board">${chain}</div>
+ <div class="status">${st}${S.boneyard&&!S.canDraw?` <span style="opacity:.6;font-weight:400">(بازار: ${S.boneyard})</span>`:''}</div>
+ <div class="acts">${acts}</div><div class="hand">${hand}</div><div class="log">${S.log.slice(-3).map(esc).join(' | ')}</div>${modal}`;
+}
+function render(){
+ const a=$('app');
+ if(!S){const keep=document.activeElement&&document.activeElement.id;a.innerHTML=lobby();return}
+ a.innerHTML=S.phase==='lobby'?waiting():game();
+}
+render();
+</script>
+</body>
+</html>
