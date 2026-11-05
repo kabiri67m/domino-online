@@ -1,6 +1,12 @@
 const express = require('express'), http = require('http'), { Server } = require('socket.io');
 const app = express(), srv = http.createServer(app), io = new Server(srv);
-app.use(express.static(__dirname + '/public'));
+const fs = require('fs'), path = require('path');
+const PUB = fs.existsSync(path.join(__dirname, 'public', 'index.html')) ? path.join(__dirname, 'public') : __dirname;
+app.use(express.static(PUB));
+app.get('/', (q, r) => {
+  const f = path.join(PUB, 'index.html');
+  fs.existsSync(f) ? r.sendFile(f) : r.status(500).send('index.html not found. Put it in the public/ folder.');
+});
 app.get('/health', (q, r) => r.send('ok'));
 
 const rooms = {};
