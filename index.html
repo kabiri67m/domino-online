@@ -59,7 +59,10 @@ label{font-size:13px;opacity:.75}
 <div id="app"></div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const so=io();let S=null,sel=null;
+const so=io({transports:['websocket','polling'],reconnectionDelay:1000});let S=null,sel=null,ON=false;
+function cs(m,ok){const e=document.getElementById('cs');if(e){e.textContent=m;e.style.color=ok?'#7fe08a':'#ff9a8f'}}
+so.on('connect_error',e=>{ON=false;cs('🔴 اتصال به سرور برقرار نشد… (در حال تلاش مجدد)',false)});
+so.on('disconnect',()=>{ON=false;cs('🔴 اتصال قطع شد…',false)});
 const pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36));
 const $=id=>document.getElementById(id);
 const P=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
@@ -71,17 +74,22 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const nm=()=>($('name')?.value||localStorage.name||'بازیکن').trim()||'بازیکن';
 
 function after(res){ if(res.err){alert(res.err);localStorage.removeItem('room');render();return} localStorage.room=res.code; history.replaceState(null,'','?room='+res.code); }
-function create(){localStorage.name=nm();go('create',{name:nm(),pid,max:$('max').value,target:$('target').value},after)}
-function joinRoom(){localStorage.name=nm();const c=$('code').value.trim();if(c)go('join',{name:nm(),pid,code:c},after)}
+function ask(ev,d){
+ if(!so.connected){alert('هنوز به سرور وصل نشده‌ای. چند ثانیه صبر کن (سرور رایگان رندر دیر بیدار می‌شود) و دوباره بزن.');return}
+ let done=false;const t=setTimeout(()=>{if(!done)alert('سرور جواب نداد. صفحه را رفرش کن.')},8000);
+ go(ev,d,r=>{done=true;clearTimeout(t);after(r)});
+}
+function create(){localStorage.name=nm();ask('create',{name:nm(),pid,max:$('max').value,target:$('target').value})}
+function joinRoom(){localStorage.name=nm();const c=$('code').value.trim();if(c)ask('join',{name:nm(),pid,code:c})}
 function leave(){go('leave');localStorage.removeItem('room');history.replaceState(null,'','/');S=null;render()}
 function pick(i){const m=S.moves&&S.moves.find(m=>m.i===i);if(!m)return;if(m.sides.length===1)return go('move',{i,side:m.sides[0]});sel=sel===i?null:i;render()}
 function mv(i,side){sel=null;go('move',{i,side})}
-so.on('connect',()=>{const c=localStorage.room;if(c)go('join',{code:c,pid,name:localStorage.name},r=>{if(r.err){localStorage.removeItem('room');S=null;render()}})});
+so.on('connect',()=>{ON=true;cs('🟢 متصل به سرور',true);const c=localStorage.room;if(c)go('join',{code:c,pid,name:localStorage.name},r=>{if(r.err){localStorage.removeItem('room');S=null;render()}})});
 so.on('state',s=>{S=s;sel=null;render()});
 
 function lobby(){
  const q=new URLSearchParams(location.search).get('room')||'';
- return `<div class="wrap"><h1>🁣 دومینو</h1><div class="sub">دومینو دابل‌سیکس · آنلاین · ۲ تا ۴ نفره</div>
+ return `<div class="wrap"><h1>🁣 دومینو</h1><div class="sub">دومینو دابل‌سیکس · آنلاین · ۲ تا ۴ نفره</div><div id="cs" style="font-size:13px;margin:-8px 0 12px;color:#ff9a8f">${so.connected?'🟢 متصل به سرور':'🔴 در حال اتصال به سرور…'}</div>
  <div class="panel"><label>نام شما</label><input id="name" maxlength="14" value="${esc(localStorage.name||'')}" placeholder="مثلاً علی">
  <div class="row"><div><label>تعداد بازیکنان</label><select id="max"><option value="2">۲ نفره (بازار دارد)</option><option value="3">۳ نفره (بازار دارد)</option><option value="4" selected>۴ نفره (دو تیمه)</option></select></div>
  <div><label>امتیاز هدف</label><select id="target"><option>50</option><option selected>100</option><option>150</option><option>200</option></select></div></div>
